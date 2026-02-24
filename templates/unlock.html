@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+{% block content %}
+  <section class="card">
+    <h2>{{ capsule.title }}</h2>
+    <p class="date">Unlocked at: {{ capsule.unlock_time }}</p>
+    <p>{{ capsule.message }}</p>
+    <a class="link" href="{{ url_for('index') }}">Back</a>
+  </section>
+{% endblock %}
