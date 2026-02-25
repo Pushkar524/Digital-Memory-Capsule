@@ -28,7 +28,9 @@ DB_PATH = os.path.join(BASE_DIR, "memory_capsule.db")
 load_dotenv()
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
+if not app.config["SECRET_KEY"]:
+    raise RuntimeError("SECRET_KEY is not set.")
 app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024
 
 ALLOWED_EXTENSIONS = {
@@ -548,4 +550,4 @@ def clear_capsules():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
