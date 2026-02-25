@@ -65,13 +65,17 @@
       const unlockDate = new Date(unlockValue);
       unlockLocalEl.textContent = unlockDate.toLocaleString();
 
+      let reloaded = false;
       const updateCountdown = () => {
         const now = new Date();
         const diff = unlockDate - now;
         if (diff <= 0) {
           countdownEl.textContent = "Ready";
           if (unlockForm) unlockForm.style.display = "grid";
-          window.location.reload();
+          if (!reloaded) {
+            reloaded = true;
+            window.location.reload();
+          }
           return;
         }
 
