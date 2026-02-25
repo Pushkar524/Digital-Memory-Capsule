@@ -10,11 +10,24 @@
     </div>
     <form class="form" method="post" action="{{ url_for('unlock', capsule_id=capsule.id) }}">
       <label>
+        Recipient email
+        <input type="email" name="user_email" placeholder="recipient@example.com" required />
+      </label>
+      <label>
         Your key half (base64)
         <input type="text" name="user_key_half" placeholder="Paste your key half" required />
       </label>
       <button type="submit">Unlock</button>
     </form>
+    {% if unlock_status == "locked" %}
+      <p class="muted">This capsule is locked. Enter your key half to decrypt.</p>
+    {% elif unlock_status == "invalid" %}
+      <p class="muted">Incorrect key half. Please try again.</p>
+    {% elif unlock_status == "missing" %}
+      <p class="muted">Please provide your key half to continue.</p>
+    {% elif unlock_status == "success" %}
+      <p class="muted">Decryption successful.</p>
+    {% endif %}
     {% if capsule.message %}
       <p class="message-box">{{ capsule.message }}</p>
     {% endif %}

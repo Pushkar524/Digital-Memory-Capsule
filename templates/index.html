@@ -12,8 +12,12 @@
     <h2>Create a capsule</h2>
     <form class="form" method="post" action="{{ url_for('index') }}" enctype="multipart/form-data">
       <label>
-        Title
-        <input type="text" name="title" placeholder="My future memory" required />
+        Sender email
+        <input type="email" name="sender_email" placeholder="sender@example.com" required />
+      </label>
+      <label>
+        Recipient email
+        <input type="email" name="recipient_email" placeholder="recipient@example.com" required />
       </label>
       <label>
         Message
