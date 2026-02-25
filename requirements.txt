@@ -1,3 +1,4 @@
 Flask==3.1.2
 cryptography==46.0.3
 gunicorn==25.1.0
+sendgrid==6.11.0

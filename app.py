@@ -1,11 +1,11 @@
 import base64
 import os
 import sqlite3
-import smtplib
 from datetime import datetime, timezone
 from io import BytesIO
 from itertools import islice
-from email.message import EmailMessage
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 from cryptography.fernet import Fernet, InvalidToken
 from flask import (
@@ -22,10 +22,7 @@ from flask import (
 from werkzeug.utils import secure_filename
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-DB_PATH = "/tmp/memory_capsule.db"
-
-
-
+DB_PATH = os.path.join(BASE_DIR, "memory_capsule.db")
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
 if not app.config["SECRET_KEY"]:
@@ -159,27 +156,28 @@ def split_key_halves(key_bytes: bytes) -> tuple[bytes, bytes]:
 
 
 def send_key_email(recipient_email: str, user_key_half: str) -> bool:
-    email_user = os.environ.get("EMAIL_USER")
-    email_pass = os.environ.get("EMAIL_PASS")
-    if not email_user or not email_pass:
+    api_key = os.environ.get("SENDGRID_API_KEY")
+    sender = os.environ.get("EMAIL_USER")
+
+    if not api_key or not sender:
         return False
 
-    message = EmailMessage()
-    message["Subject"] = "Your Digital Memory Capsule Key"
-    message["From"] = email_user
-    message["To"] = recipient_email
-    message.set_content(
-        "Your Digital Memory Capsule key half is below.\n\n"
-        f"{user_key_half}\n\n"
-        "You will need this key to unlock the capsule when the time arrives."
+    message = Mail(
+        from_email=sender,
+        to_emails=recipient_email,
+        subject="Your Digital Memory Capsule Key",
+        plain_text_content=(
+            "Your Digital Memory Capsule key half is below:\n\n"
+            f"{user_key_half}\n\n"
+            "You will need this key to unlock the capsule."
+        ),
     )
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(email_user, email_pass)
-            server.send_message(message)
+        sg = SendGridAPIClient(api_key)
+        sg.send(message)
         return True
-    except smtplib.SMTPException:
+    except Exception:
         return False
 
 
