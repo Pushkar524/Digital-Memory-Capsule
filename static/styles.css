@@ -5,32 +5,56 @@
 body {
   margin: 0;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: #f5f6fb;
-  color: #1e1f24;
+  background: radial-gradient(circle at top, #eef2ff 0%, #f8fafc 40%, #ffffff 100%);
+  color: #111827;
 }
 
 .page {
-  max-width: 900px;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 32px 20px 60px;
+  padding: 36px 20px 72px;
 }
 
 .header {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 32px;
+}
+
+.header h1 {
+  font-size: clamp(2rem, 2.5vw, 2.6rem);
+  margin: 0;
+  letter-spacing: 0.02em;
 }
 
 .subtitle {
   color: #6b7280;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .card {
   background: #ffffff;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
   margin-bottom: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(120deg, #eef2ff, #ffffff);
+}
+
+.hero-badge {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
 }
 
 .form {
@@ -52,6 +76,12 @@ textarea {
   border-radius: 8px;
 }
 
+input:focus,
+textarea:focus {
+  outline: 2px solid rgba(37, 99, 235, 0.2);
+  border-color: #2563eb;
+}
+
 button {
   background: #2563eb;
   color: white;
@@ -67,7 +97,16 @@ button:hover {
   background: #1d4ed8;
 }
 
-.memory-list {
+.danger {
+  background: #ef4444;
+}
+
+.danger:hover {
+  background: #dc2626;
+}
+
+.memory-list,
+.list {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -75,12 +114,14 @@ button:hover {
   gap: 16px;
 }
 
-.memory-list li {
+.memory-list li,
+.list li {
   border-bottom: 1px solid #e5e7eb;
   padding-bottom: 14px;
 }
 
-.memory-list li:last-child {
+.memory-list li:last-child,
+.list li:last-child {
   border-bottom: none;
 }
 
@@ -111,4 +152,70 @@ button:hover {
   padding: 10px 14px;
   border-radius: 8px;
   margin-bottom: 16px;
+}
+
+.preview {
+  background: #f8fafc;
+  border: 1px dashed #cbd5f5;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-family: "Consolas", "Courier New", monospace;
+  word-break: break-all;
+}
+
+.mono {
+  font-family: "Consolas", "Courier New", monospace;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.message-box {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+th {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.status {
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.locked {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.unlocked {
+  background: #dcfce7;
+  color: #166534;
 }
