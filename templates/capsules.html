@@ -1,0 +1,72 @@
+{% extends "layout.html" %}
+{% block content %}
+  <section class="card">
+    <h2>All capsules</h2>
+    {% if capsules %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Unlock time</th>
+              <th>Status</th>
+              <th>Countdown</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for capsule in capsules %}
+              <tr data-unlock="{{ capsule.unlock_time }}">
+                <td>{{ capsule.id }}</td>
+                <td>{{ capsule.unlock_time }}</td>
+                <td>
+                  <span class="status {{ 'unlocked' if capsule.status == 'Unlocked' else 'locked' }}">
+                    {{ capsule.status }}
+                  </span>
+                </td>
+                <td class="countdown">--</td>
+                <td>
+                  <a class="link" href="{{ url_for('unlock', capsule_id=capsule.id) }}">Unlock</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted">No capsules found.</p>
+    {% endif %}
+  </section>
+
+  <script>
+    function parseUtc(value) {
+      const normalized = value.endsWith("Z") ? value : value + "Z";
+      return new Date(normalized);
+    }
+
+    function formatCountdown(ms) {
+      if (ms <= 0) return "Unlocked";
+      const totalSeconds = Math.floor(ms / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+    }
+
+    function updateCountdowns() {
+      const rows = document.querySelectorAll("tr[data-unlock]");
+      const now = new Date();
+      rows.forEach((row) => {
+        const unlockTime = row.getAttribute("data-unlock");
+        const unlockDate = parseUtc(unlockTime);
+        const diff = unlockDate - now;
+        const cell = row.querySelector(".countdown");
+        if (cell) cell.textContent = formatCountdown(diff);
+      });
+    }
+
+    updateCountdowns();
+    setInterval(updateCountdowns, 1000);
+  </script>
+{% endblock %}

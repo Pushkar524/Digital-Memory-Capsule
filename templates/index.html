@@ -1,130 +1,84 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Digital Memory Capsule</title>
-    <style>
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background: #f5f6fb;
-        color: #1f2937;
-      }
-      .page { max-width: 900px; margin: 0 auto; padding: 28px 18px 60px; }
-      .header { text-align: center; margin-bottom: 20px; }
-      .subtitle { color: #6b7280; margin-top: 6px; }
-      .card {
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-        margin-bottom: 18px;
-      }
-      .form { display: grid; gap: 12px; }
-      label { display: grid; gap: 6px; font-weight: 600; }
-      input, textarea {
-        font: inherit;
-        padding: 10px 12px;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-      }
-      button {
-        background: #2563eb;
-        color: #fff;
-        border: none;
-        border-radius: 8px;
-        padding: 10px 16px;
-        font-weight: 600;
-        cursor: pointer;
-        justify-self: start;
-      }
-      .flash {
-        background: #ecfeff;
-        border: 1px solid #06b6d4;
-        color: #0e7490;
-        padding: 10px 14px;
-        border-radius: 8px;
-        margin-bottom: 16px;
-      }
-      .list { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
-      .list li { border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
-      .list li:last-child { border-bottom: none; }
-      .muted { color: #6b7280; font-size: 0.9rem; }
-      .link { color: #2563eb; text-decoration: none; font-weight: 600; }
-      .link:hover { text-decoration: underline; }
-      .preview {
-        background: #f8fafc;
-        border: 1px dashed #cbd5f5;
-        padding: 10px 12px;
-        border-radius: 8px;
-        font-family: "Consolas", "Courier New", monospace;
-        word-break: break-all;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="page">
-      <header class="header">
-        <h1>Digital Memory Capsule</h1>
-        <p class="subtitle">Store an encrypted message and unlock it later</p>
-      </header>
-
-      {% with messages = get_flashed_messages() %}
-        {% if messages %}
-          <div class="flash">
-            {% for message in messages %}
-              <p>{{ message }}</p>
-            {% endfor %}
-          </div>
-        {% endif %}
-      {% endwith %}
-
-      <section class="card">
-        <h2>Create a capsule</h2>
-        <form class="form" method="post" action="{{ url_for('index') }}">
-          <label>
-            Title
-            <input type="text" name="title" placeholder="My future memory" required />
-          </label>
-          <label>
-            Message
-            <textarea name="message" rows="4" placeholder="Write your message" required></textarea>
-          </label>
-          <label>
-            Unlock time
-            <input type="datetime-local" name="unlock_time" required />
-          </label>
-          <button type="submit">Save capsule</button>
-        </form>
-      </section>
-
-      {% if encrypted_preview %}
-        <section class="card">
-          <h2>Encrypted preview</h2>
-          <div class="preview">{{ encrypted_preview }}</div>
-        </section>
-      {% endif %}
-
-      <section class="card">
-        <h2>Saved capsules</h2>
-        {% if capsules %}
-          <ul class="list">
-            {% for capsule in capsules %}
-              <li>
-                <h3>{{ capsule.title }}</h3>
-                <p class="muted">Unlocks at: {{ capsule.unlock_time }}</p>
-                <p class="muted">Encrypted preview:</p>
-                <div class="preview">{{ capsule.encrypted_preview }}</div>
-                <p><a class="link" href="{{ url_for('unlock', capsule_id=capsule.id) }}">Unlock</a></p>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="muted">No capsules yet. Create your first one above.</p>
-        {% endif %}
-      </section>
+{% extends "layout.html" %}
+{% block content %}
+  <section class="card hero">
+    <div>
+      <h2>Exhibition Prototype</h2>
+      <p class="subtitle">Capture memories today, unlock them in the future.</p>
     </div>
-  </body>
-</html>
+    <div class="hero-badge">AES • Fernet</div>
+  </section>
+
+  <section class="card">
+    <h2>Create a capsule</h2>
+    <form class="form" method="post" action="{{ url_for('index') }}" enctype="multipart/form-data">
+      <label>
+        Title
+        <input type="text" name="title" placeholder="My future memory" required />
+      </label>
+      <label>
+        Message
+        <textarea name="message" rows="4" placeholder="Write your message" required></textarea>
+      </label>
+      <label>
+        Unlock time
+        <input type="datetime-local" name="unlock_time" required />
+      </label>
+      <label>
+        Attach files (max 30MB each)
+        <input
+          type="file"
+          name="files"
+          multiple
+          accept=".pdf,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.mp4"
+        />
+      </label>
+      <button type="submit">Save capsule</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>How encryption works</h2>
+    <p class="muted">
+      Your message and files are encrypted on save using Fernet (AES + HMAC). The
+      encryption key stays on this device in <span class="mono">fernet.key</span>,
+      so only this app can unlock the contents.
+    </p>
+  </section>
+
+  {% if encrypted_preview %}
+    <section class="card">
+      <h2>Encrypted hash</h2>
+      <div class="preview">{{ encrypted_preview }}</div>
+    </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>Saved capsules</h2>
+    {% if capsules %}
+      <ul class="list">
+        {% for capsule in capsules %}
+          <li>
+            <div class="row">
+              <div>
+                <h3>Capsule #{{ capsule.id }}</h3>
+                <p class="muted">Unlocks at: {{ capsule.unlock_time }}</p>
+              </div>
+              <a class="link" href="{{ url_for('unlock', capsule_id=capsule.id) }}">Unlock</a>
+            </div>
+            <p class="muted">Encrypted hash:</p>
+            <div class="preview">{{ capsule.encrypted_preview }}</div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No capsules yet. Create your first one above.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Manage capsules</h2>
+    <form method="post" action="{{ url_for('clear_capsules') }}" onsubmit="return confirm('Clear all capsules and files?');">
+      <button type="submit" class="danger">Clear all capsules</button>
+    </form>
+  </section>
+{% endblock %}

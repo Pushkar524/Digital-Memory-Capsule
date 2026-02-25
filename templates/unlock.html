@@ -1,9 +1,30 @@
 {% extends "layout.html" %}
 {% block content %}
   <section class="card">
-    <h2>{{ capsule.title }}</h2>
-    <p class="date">Unlocked at: {{ capsule.unlock_time }}</p>
-    <p>{{ capsule.message }}</p>
-    <a class="link" href="{{ url_for('index') }}">Back</a>
+    <div class="row">
+      <div>
+        <h2>Capsule #{{ capsule.id }}</h2>
+        <p class="muted">Unlocked at: {{ capsule.unlock_time }}</p>
+      </div>
+      <a class="link" href="{{ url_for('index') }}">Back</a>
+    </div>
+    <p class="message-box">{{ capsule.message }}</p>
   </section>
+
+  {% if capsule.files %}
+    <section class="card">
+      <h3>Files</h3>
+      <ul class="list">
+        {% for file in capsule.files %}
+          <li class="row">
+            <div>
+              <span class="mono">{{ file.filename }}</span>
+              <span class="muted"> ({{ file.size }} bytes)</span>
+            </div>
+            <a class="link" href="{{ url_for('download_file', file_id=file.id) }}">Download</a>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
 {% endblock %}
