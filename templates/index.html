@@ -88,13 +88,6 @@
     {% endif %}
   </section>
 
-  <section class="card">
-    <h2>Manage capsules</h2>
-    <form method="post" action="{{ url_for('clear_capsules') }}" onsubmit="return confirm('Clear all capsules and files?');">
-      <button type="submit" class="danger">Clear all capsules</button>
-    </form>
-  </section>
-
   <script>
     const form = document.getElementById("capsule-form");
     const localInput = document.getElementById("unlock_time_local");
