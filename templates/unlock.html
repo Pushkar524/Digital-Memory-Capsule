@@ -8,7 +8,7 @@
       </div>
       <a class="link" href="{{ url_for('index') }}">Back</a>
     </div>
-    <form class="form" method="post" action="{{ url_for('unlock', capsule_id=capsule.id) }}">
+    <form class="form" method="post" action="{{ url_for('unlock', capsule_id=capsule.id) }}" id="unlock-form">
       <label>
         Recipient email
         <input type="email" name="user_email" placeholder="recipient@example.com" required />
@@ -20,7 +20,11 @@
       <button type="submit">Unlock</button>
     </form>
     {% if unlock_status == "locked" %}
-      <p class="muted">This capsule is locked. Enter your key half to decrypt.</p>
+      <div class="message-box" id="countdown-box" data-unlock="{{ capsule.unlock_time }}">
+        <p class="muted">This capsule is still locked.</p>
+        <p class="muted">Unlocks at: <span id="unlock-local">--</span></p>
+        <p class="muted">Time remaining: <span id="countdown">--</span></p>
+      </div>
     {% elif unlock_status == "invalid" %}
       <p class="muted">Incorrect key half. Please try again.</p>
     {% elif unlock_status == "missing" %}
@@ -49,4 +53,40 @@
       </ul>
     </section>
   {% endif %}
+
+  <script>
+    const countdownBox = document.getElementById("countdown-box");
+    const countdownEl = document.getElementById("countdown");
+    const unlockLocalEl = document.getElementById("unlock-local");
+    const unlockForm = document.getElementById("unlock-form");
+
+    if (countdownBox && countdownEl && unlockLocalEl) {
+      const unlockValue = countdownBox.getAttribute("data-unlock");
+      const unlockDate = new Date(unlockValue);
+      unlockLocalEl.textContent = unlockDate.toLocaleString();
+
+      const updateCountdown = () => {
+        const now = new Date();
+        const diff = unlockDate - now;
+        if (diff <= 0) {
+          countdownEl.textContent = "Ready";
+          if (unlockForm) unlockForm.style.display = "grid";
+          window.location.reload();
+          return;
+        }
+
+        const totalSeconds = Math.floor(diff / 1000);
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        countdownEl.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+
+        if (unlockForm) unlockForm.style.display = "none";
+      };
+
+      updateCountdown();
+      setInterval(updateCountdown, 1000);
+    }
+  </script>
 {% endblock %}
