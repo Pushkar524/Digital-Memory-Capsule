@@ -127,10 +127,10 @@ def utcnow_iso() -> str:
 
 
 def parse_datetime(value: str) -> datetime:
-    # Treat input as LOCAL time and convert explicitly to UTC
-    parsed_local = datetime.fromisoformat(value)
-    local_with_tz = parsed_local.astimezone()  # Attach system local tz
-    return local_with_tz.astimezone(timezone.utc)
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 def is_allowed_file(filename: str) -> bool:
     ext = os.path.splitext(filename)[1].lower()
