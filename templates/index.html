@@ -52,6 +52,14 @@
     </section>
   {% endif %}
 
+  {% if user_key_half %}
+    <section class="card">
+      <h2>Your key half (save this)</h2>
+      <div class="preview">{{ user_key_half }}</div>
+      <p class="muted">Keep this safe. You will need it to unlock the capsule.</p>
+    </section>
+  {% endif %}
+
   <section class="card">
     <h2>Saved capsules</h2>
     {% if capsules %}

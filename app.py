@@ -310,14 +310,16 @@ def index():
         flash("Unable to load capsules right now.")
 
     encrypted_preview = session.pop("encrypted_preview", None)
+    user_key_half = session.pop("user_key_half", None)
     return render_template(
         "index.html",
         capsules=capsules,
         encrypted_preview=encrypted_preview,
+        user_key_half=user_key_half,
     )
 
 
-@app.route("/unlock/<int:capsule_id>", methods=["GET"])
+@app.route("/unlock/<int:capsule_id>", methods=["GET", "POST"])
 def unlock(capsule_id: int):
     if not init_db():
         flash("Database is not available right now. Please try again later.")
@@ -330,7 +332,11 @@ def unlock(capsule_id: int):
 
     try:
         row = db.execute(
-            "SELECT id, encrypted_text, unlock_time FROM capsules WHERE id = ?",
+            """
+            SELECT id, encrypted_text, unlock_time, server_key_half
+            FROM capsules
+            WHERE id = ?
+            """,
             (capsule_id,),
         ).fetchone()
     except sqlite3.Error:
@@ -351,26 +357,37 @@ def unlock(capsule_id: int):
         flash("This capsule is still locked.")
         return redirect(url_for("index"))
 
-    try:
-        fernet = get_fernet()
-        decrypted = fernet.decrypt(row["encrypted_text"]).decode("utf-8")
-    except (InvalidToken, Exception):
-        decrypted = "[Unable to decrypt message]"
+    decrypted = None
+    if request.method == "POST":
+        user_key_half = request.form.get("user_key_half", "").strip()
+        if not user_key_half:
+            flash("Please provide your key half to unlock this capsule.")
+        else:
+            try:
+                server_half = base64.urlsafe_b64decode(row["server_key_half"])
+                user_half = base64.urlsafe_b64decode(user_key_half)
+                full_key = base64.urlsafe_b64encode(server_half + user_half)
+                fernet = Fernet(full_key)
+                decrypted = fernet.decrypt(row["encrypted_text"]).decode("utf-8")
+                session[f"user_key_half_{row['id']}"] = user_key_half
+            except (InvalidToken, ValueError, Exception):
+                flash("Invalid key half. Please check and try again.")
 
     files = []
-    try:
-        file_rows = db.execute(
-            """
-            SELECT id, filename, content_type, size
-            FROM capsule_files
-            WHERE capsule_id = ?
-            ORDER BY id ASC
-            """,
-            (capsule_id,),
-        ).fetchall()
-        files = [dict(file_row) for file_row in file_rows]
-    except sqlite3.Error:
-        flash("Unable to load files right now.")
+    if decrypted is not None:
+        try:
+            file_rows = db.execute(
+                """
+                SELECT id, filename, content_type, size
+                FROM capsule_files
+                WHERE capsule_id = ?
+                ORDER BY id ASC
+                """,
+                (capsule_id,),
+            ).fetchall()
+            files = [dict(file_row) for file_row in file_rows]
+        except sqlite3.Error:
+            flash("Unable to load files right now.")
 
     return render_template(
         "unlock.html",
@@ -397,7 +414,7 @@ def download_file(file_id: int):
     try:
         row = db.execute(
             """
-            SELECT f.id, f.filename, f.content_type, f.data, c.unlock_time
+            SELECT f.id, f.filename, f.content_type, f.data, c.unlock_time, c.server_key_half, c.id AS capsule_id
             FROM capsule_files f
             JOIN capsules c ON c.id = f.capsule_id
             WHERE f.id = ?
@@ -422,12 +439,20 @@ def download_file(file_id: int):
         flash("This capsule is still locked.")
         return redirect(url_for("index"))
 
+    user_key_half = session.get(f"user_key_half_{row['capsule_id']}")
+    if not user_key_half:
+        flash("Please unlock the capsule with your key half first.")
+        return redirect(url_for("unlock", capsule_id=row["capsule_id"]))
+
     try:
-        fernet = get_fernet()
+        server_half = base64.urlsafe_b64decode(row["server_key_half"])
+        user_half = base64.urlsafe_b64decode(user_key_half)
+        full_key = base64.urlsafe_b64encode(server_half + user_half)
+        fernet = Fernet(full_key)
         decrypted = fernet.decrypt(row["data"])
-    except (InvalidToken, Exception):
-        flash("Unable to decrypt the file.")
-        return redirect(url_for("index"))
+    except (InvalidToken, ValueError, Exception):
+        flash("Unable to decrypt the file. Check your key half and try again.")
+        return redirect(url_for("unlock", capsule_id=row["capsule_id"]))
 
     return send_file(
         BytesIO(decrypted),

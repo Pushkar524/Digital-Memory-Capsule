@@ -8,7 +8,16 @@
       </div>
       <a class="link" href="{{ url_for('index') }}">Back</a>
     </div>
-    <p class="message-box">{{ capsule.message }}</p>
+    <form class="form" method="post" action="{{ url_for('unlock', capsule_id=capsule.id) }}">
+      <label>
+        Your key half (base64)
+        <input type="text" name="user_key_half" placeholder="Paste your key half" required />
+      </label>
+      <button type="submit">Unlock</button>
+    </form>
+    {% if capsule.message %}
+      <p class="message-box">{{ capsule.message }}</p>
+    {% endif %}
   </section>
 
   {% if capsule.files %}
