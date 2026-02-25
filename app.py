@@ -1,8 +1,11 @@
 import base64
 import os
 import sqlite3
+import smtplib
 from datetime import datetime, timezone
 from io import BytesIO
+from itertools import islice
+from email.message import EmailMessage
 
 from cryptography.fernet import Fernet, InvalidToken
 from dotenv import load_dotenv
@@ -21,7 +24,6 @@ from werkzeug.utils import secure_filename
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DB_PATH = os.path.join(BASE_DIR, "memory_capsule.db")
-KEY_PATH = os.path.join(BASE_DIR, "fernet.key")
 
 load_dotenv()
 
@@ -41,21 +43,6 @@ ALLOWED_EXTENSIONS = {
     ".webp",
     ".mp4",
 }
-
-
-def load_or_create_key() -> bytes:
-    if os.path.exists(KEY_PATH):
-        with open(KEY_PATH, "rb") as key_file:
-            return key_file.read().strip()
-
-    key = Fernet.generate_key()
-    with open(KEY_PATH, "wb") as key_file:
-        key_file.write(key)
-    return key
-
-
-def get_fernet() -> Fernet:
-    return Fernet(load_or_create_key())
 
 
 def get_db() -> sqlite3.Connection | None:
@@ -90,48 +77,30 @@ def init_db() -> bool:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 encrypted_text BLOB NOT NULL,
                 unlock_time TEXT NOT NULL,
-                server_key_half TEXT NOT NULL
+                server_key_half TEXT NOT NULL,
+                sender_email TEXT NOT NULL,
+                recipient_email TEXT NOT NULL
             )
             """
         )
 
         columns = [row[1] for row in db.execute("PRAGMA table_info(capsules)").fetchall()]
-        legacy_columns = {"title", "message", "created_at"}
-        needs_migration = (
-            "encrypted_text" not in columns
-            or "server_key_half" not in columns
-            or any(col in columns for col in legacy_columns)
-        )
-
-        if needs_migration:
+        if "encrypted_text" not in columns:
             db.execute(
-                """
-                CREATE TABLE IF NOT EXISTS capsules_new (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    encrypted_text BLOB NOT NULL,
-                    unlock_time TEXT NOT NULL,
-                    server_key_half TEXT NOT NULL
-                )
-                """
+                "ALTER TABLE capsules ADD COLUMN encrypted_text BLOB NOT NULL DEFAULT x''"
             )
-
-            if "message" in columns:
-                db.execute(
-                    """
-                    INSERT INTO capsules_new (id, encrypted_text, unlock_time, server_key_half)
-                    SELECT id, message, unlock_time, '' FROM capsules
-                    """
-                )
-            else:
-                db.execute(
-                    """
-                    INSERT INTO capsules_new (id, encrypted_text, unlock_time, server_key_half)
-                    SELECT id, encrypted_text, unlock_time, '' FROM capsules
-                    """
-                )
-
-            db.execute("DROP TABLE capsules")
-            db.execute("ALTER TABLE capsules_new RENAME TO capsules")
+        if "server_key_half" not in columns:
+            db.execute(
+                "ALTER TABLE capsules ADD COLUMN server_key_half TEXT NOT NULL DEFAULT ''"
+            )
+        if "sender_email" not in columns:
+            db.execute(
+                "ALTER TABLE capsules ADD COLUMN sender_email TEXT NOT NULL DEFAULT ''"
+            )
+        if "recipient_email" not in columns:
+            db.execute(
+                "ALTER TABLE capsules ADD COLUMN recipient_email TEXT NOT NULL DEFAULT ''"
+            )
 
         db.execute(
             """
@@ -181,6 +150,38 @@ def get_file_size(file_storage) -> int:
     return size
 
 
+def split_key_halves(key_bytes: bytes) -> tuple[bytes, bytes]:
+    iterator = iter(key_bytes)
+    first_half = bytes(islice(iterator, 16))
+    second_half = bytes(iterator)
+    return first_half, second_half
+
+
+def send_key_email(recipient_email: str, user_key_half: str) -> bool:
+    email_user = os.environ.get("EMAIL_USER")
+    email_pass = os.environ.get("EMAIL_PASS")
+    if not email_user or not email_pass:
+        return False
+
+    message = EmailMessage()
+    message["Subject"] = "Your Digital Memory Capsule Key"
+    message["From"] = email_user
+    message["To"] = recipient_email
+    message.set_content(
+        "Your Digital Memory Capsule key half is below.\n\n"
+        f"{user_key_half}\n\n"
+        "You will need this key to unlock the capsule when the time arrives."
+    )
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(email_user, email_pass)
+            server.send_message(message)
+        return True
+    except smtplib.SMTPException:
+        return False
+
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     if not init_db():
@@ -188,13 +189,14 @@ def index():
         return render_template("index.html", capsules=[], encrypted_preview=None)
 
     if request.method == "POST":
-        title = request.form.get("title", "").strip()
         message = request.form.get("message", "").strip()
         unlock_time = request.form.get("unlock_time", "").strip()
+        sender_email = request.form.get("sender_email", "").strip()
+        recipient_email = request.form.get("recipient_email", "").strip()
         files = request.files.getlist("files")
 
-        if not title or not message or not unlock_time:
-            flash("Title, message, and unlock time are required.")
+        if not message or not unlock_time or not sender_email or not recipient_email:
+            flash("Message, unlock time, sender email, and recipient email are required.")
             return redirect(url_for("index"))
 
         try:
@@ -206,8 +208,7 @@ def index():
         try:
             capsule_key = Fernet.generate_key()
             key_bytes = base64.urlsafe_b64decode(capsule_key)
-            server_half = key_bytes[:16]
-            user_half = key_bytes[16:]
+            server_half, user_half = split_key_halves(key_bytes)
 
             # Reconstruction: base64-decode server + user halves, join, then base64-encode.
             server_half_b64 = base64.urlsafe_b64encode(server_half).decode("utf-8")
@@ -244,13 +245,21 @@ def index():
         try:
             cursor = db.execute(
                 """
-                INSERT INTO capsules (encrypted_text, unlock_time, server_key_half)
-                VALUES (?, ?, ?)
+                INSERT INTO capsules (
+                    encrypted_text,
+                    unlock_time,
+                    server_key_half,
+                    sender_email,
+                    recipient_email
+                )
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 (
                     encrypted,
                     parsed_unlock.isoformat().replace("+00:00", "Z"),
                     server_half_b64,
+                    sender_email,
+                    recipient_email,
                 ),
             )
             capsule_id = cursor.lastrowid
@@ -281,6 +290,9 @@ def index():
             else:
                 flash("Unable to save the capsule. Please try again.")
             return redirect(url_for("index"))
+
+        if not send_key_email(recipient_email, user_half_b64):
+            flash("Capsule saved, but email delivery failed.")
 
         flash("Capsule saved successfully.")
         session["encrypted_preview"] = base64.b64encode(encrypted).decode("utf-8")
@@ -333,7 +345,7 @@ def unlock(capsule_id: int):
     try:
         row = db.execute(
             """
-            SELECT id, encrypted_text, unlock_time, server_key_half
+            SELECT id, encrypted_text, unlock_time, server_key_half, recipient_email
             FROM capsules
             WHERE id = ?
             """,
@@ -358,10 +370,18 @@ def unlock(capsule_id: int):
         return redirect(url_for("index"))
 
     decrypted = None
+    unlock_status = "locked"
     if request.method == "POST":
+        user_email = request.form.get("user_email", "").strip().lower()
         user_key_half = request.form.get("user_key_half", "").strip()
-        if not user_key_half:
-            flash("Please provide your key half to unlock this capsule.")
+        recipient_email = (row["recipient_email"] or "").strip().lower()
+
+        if not user_email or not user_key_half:
+            flash("Please provide your email and key half to unlock this capsule.")
+            unlock_status = "missing"
+        elif user_email != recipient_email:
+            flash("This email is not authorized to unlock the capsule.")
+            unlock_status = "invalid"
         else:
             try:
                 server_half = base64.urlsafe_b64decode(row["server_key_half"])
@@ -370,8 +390,11 @@ def unlock(capsule_id: int):
                 fernet = Fernet(full_key)
                 decrypted = fernet.decrypt(row["encrypted_text"]).decode("utf-8")
                 session[f"user_key_half_{row['id']}"] = user_key_half
+                session[f"user_email_{row['id']}"] = user_email
+                unlock_status = "success"
             except (InvalidToken, ValueError, Exception):
                 flash("Invalid key half. Please check and try again.")
+                unlock_status = "invalid"
 
     files = []
     if decrypted is not None:
@@ -397,6 +420,7 @@ def unlock(capsule_id: int):
             "unlock_time": row["unlock_time"],
             "files": files,
         },
+        unlock_status=unlock_status,
     )
 
 
