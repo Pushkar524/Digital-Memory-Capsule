@@ -7,7 +7,7 @@ from io import BytesIO
 from itertools import islice
 from email.message import EmailMessage
 
-from cryptography.fernet import Fernet, InvalidToke
+from cryptography.fernet import Fernet, InvalidToken
 from flask import (
     Flask,
     g,
