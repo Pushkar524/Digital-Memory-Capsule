@@ -153,13 +153,14 @@ def split_key_halves(key_bytes: bytes) -> tuple[bytes, bytes]:
     return first_half, second_half
 
 
-def send_key_email(recipient_email: str, user_key_half: str) -> bool:
+def send_key_email(recipient_email: str, user_key_half: str, capsule_id: int) -> bool:
     api_key = os.environ.get("SENDGRID_API_KEY")
     sender = os.environ.get("EMAIL_USER")
 
     if not api_key or not sender:
         return False
 
+    unlock_link = url_for("unlock", capsule_id=capsule_id, _external=True)
     message = Mail(
         from_email=sender,
         to_emails=recipient_email,
@@ -167,7 +168,9 @@ def send_key_email(recipient_email: str, user_key_half: str) -> bool:
         plain_text_content=(
             "Your Digital Memory Capsule key half is below:\n\n"
             f"{user_key_half}\n\n"
-            "You will need this key to unlock the capsule."
+            "Unlock your capsule here:\n"
+            f"{unlock_link}\n\n"
+            "You can view the countdown and unlock it on that page."
         ),
     )
 
@@ -288,7 +291,7 @@ def index():
                 flash("Unable to save the capsule. Please try again.")
             return redirect(url_for("index"))
 
-        if not send_key_email(recipient_email, user_half_b64):
+        if not send_key_email(recipient_email, user_half_b64, capsule_id):
             flash("Capsule saved, but email delivery failed.")
 
         flash("Capsule saved successfully.")
