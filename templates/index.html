@@ -10,7 +10,7 @@
 
   <section class="card">
     <h2>Create a capsule</h2>
-    <form class="form" method="post" action="{{ url_for('index') }}" enctype="multipart/form-data">
+    <form class="form" method="post" action="{{ url_for('index') }}" enctype="multipart/form-data" id="capsule-form">
       <label>
         Sender email
         <input type="email" name="sender_email" placeholder="sender@example.com" required />
@@ -25,8 +25,9 @@
       </label>
       <label>
         Unlock time
-        <input type="datetime-local" name="unlock_time">
+        <input type="datetime-local" name="unlock_time_local" id="unlock_time_local" required>
       </label>
+      <input type="hidden" name="unlock_time" id="unlock_time">
       <label>
         Attach files (max 30MB each)
         <input
@@ -93,4 +94,16 @@
       <button type="submit" class="danger">Clear all capsules</button>
     </form>
   </section>
+
+  <script>
+    const form = document.getElementById("capsule-form");
+    const localInput = document.getElementById("unlock_time_local");
+    const utcInput = document.getElementById("unlock_time");
+
+    form.addEventListener("submit", () => {
+      if (!localInput.value) return;
+      const utcValue = new Date(localInput.value).toISOString();
+      utcInput.value = utcValue;
+    });
+  </script>
 {% endblock %}
