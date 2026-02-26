@@ -489,7 +489,7 @@ def download_file(file_id: int):
         mimetype=row["content_type"],
         as_attachment=True,
     )
-
+prin("hi")
 
 @app.route("/capsules", methods=["GET"])
 def list_capsules():
