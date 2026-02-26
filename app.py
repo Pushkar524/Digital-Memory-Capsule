@@ -178,7 +178,8 @@ def send_key_email(recipient_email: str, user_key_half: str, capsule_id: int) ->
         sg = SendGridAPIClient(api_key)
         sg.send(message)
         return True
-    except Exception:
+    except Exception as exc:
+        print(f"SendGrid error: {exc}")
         return False
 
 
@@ -365,36 +366,39 @@ def unlock(capsule_id: int):
         flash("This capsule has an invalid unlock time.")
         return redirect(url_for("index"))
 
-    if datetime.now(timezone.utc) < unlock_at:
-        flash("This capsule is still locked.")
-        return redirect(url_for("index"))
+    unlock_time_ms = int(unlock_at.timestamp() * 1000)
+
+    is_locked = datetime.now(timezone.utc) < unlock_at
 
     decrypted = None
-    unlock_status = "locked"
+    unlock_status = None
     if request.method == "POST":
-        user_email = request.form.get("user_email", "").strip().lower()
-        user_key_half = request.form.get("user_key_half", "").strip()
-        recipient_email = (row["recipient_email"] or "").strip().lower()
-
-        if not user_email or not user_key_half:
-            flash("Please provide your email and key half to unlock this capsule.")
-            unlock_status = "missing"
-        elif user_email != recipient_email:
-            flash("This email is not authorized to unlock the capsule.")
-            unlock_status = "invalid"
+        if is_locked:
+            flash("This capsule is still locked.")
         else:
-            try:
-                server_half = base64.urlsafe_b64decode(row["server_key_half"])
-                user_half = base64.urlsafe_b64decode(user_key_half)
-                full_key = base64.urlsafe_b64encode(server_half + user_half)
-                fernet = Fernet(full_key)
-                decrypted = fernet.decrypt(row["encrypted_text"]).decode("utf-8")
-                session[f"user_key_half_{row['id']}"] = user_key_half
-                session[f"user_email_{row['id']}"] = user_email
-                unlock_status = "success"
-            except (InvalidToken, ValueError, Exception):
-                flash("Invalid key half. Please check and try again.")
+            user_email = request.form.get("user_email", "").strip().lower()
+            user_key_half = request.form.get("user_key_half", "").strip()
+            recipient_email = (row["recipient_email"] or "").strip().lower()
+
+            if not user_email or not user_key_half:
+                flash("Please provide your email and key half to unlock this capsule.")
+                unlock_status = "missing"
+            elif user_email != recipient_email:
+                flash("This email is not authorized to unlock the capsule.")
                 unlock_status = "invalid"
+            else:
+                try:
+                    server_half = base64.urlsafe_b64decode(row["server_key_half"])
+                    user_half = base64.urlsafe_b64decode(user_key_half)
+                    full_key = base64.urlsafe_b64encode(server_half + user_half)
+                    fernet = Fernet(full_key)
+                    decrypted = fernet.decrypt(row["encrypted_text"]).decode("utf-8")
+                    session[f"user_key_half_{row['id']}"] = user_key_half
+                    session[f"user_email_{row['id']}"] = user_email
+                    unlock_status = "success"
+                except (InvalidToken, ValueError, Exception):
+                    flash("Invalid key half. Please check and try again.")
+                    unlock_status = "invalid"
 
     files = []
     if decrypted is not None:
@@ -418,6 +422,7 @@ def unlock(capsule_id: int):
             "id": row["id"],
             "message": decrypted,
             "unlock_time": row["unlock_time"],
+            "unlock_time_ms": unlock_time_ms,
             "files": files,
         },
         unlock_status=unlock_status,

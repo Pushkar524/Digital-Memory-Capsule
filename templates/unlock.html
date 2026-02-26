@@ -20,7 +20,7 @@
       <button type="submit">Unlock</button>
     </form>
     {% if unlock_status == "locked" %}
-      <div class="message-box" id="countdown-box" data-unlock="{{ capsule.unlock_time }}">
+      <div class="message-box" id="countdown-box" data-unlock-ms="{{ capsule.unlock_time_ms }}">
         <p class="muted">This capsule is still locked.</p>
         <p class="muted">Unlocks at: <span id="unlock-local">--</span></p>
         <p class="muted">Time remaining: <span id="countdown">--</span></p>
@@ -60,37 +60,33 @@
     const unlockLocalEl = document.getElementById("unlock-local");
     const unlockForm = document.getElementById("unlock-form");
 
-    if (countdownBox && countdownEl && unlockLocalEl) {
-      const unlockValue = countdownBox.getAttribute("data-unlock");
-      const unlockDate = new Date(unlockValue);
-      unlockLocalEl.textContent = unlockDate.toLocaleString();
+    if (countdownBox && countdownEl && unlockLocalEl && unlockForm) {
+      const unlockMs = Number(countdownBox.getAttribute("data-unlock-ms"));
+      if (Number.isFinite(unlockMs)) {
+        unlockLocalEl.textContent = new Date(unlockMs).toLocaleString();
+        unlockForm.style.display = "none";
 
-      let reloaded = false;
-      const updateCountdown = () => {
-        const now = new Date();
-        const diff = unlockDate - now;
-        if (diff <= 0) {
-          countdownEl.textContent = "Ready";
-          if (unlockForm) unlockForm.style.display = "grid";
-          if (!reloaded) {
-            reloaded = true;
-            window.location.reload();
+        const updateCountdown = () => {
+          const nowMs = Date.now();
+          const diff = unlockMs - nowMs;
+          if (diff <= 0) {
+            countdownBox.style.display = "none";
+            unlockForm.style.display = "grid";
+            clearInterval(timerId);
+            return;
           }
-          return;
-        }
 
-        const totalSeconds = Math.floor(diff / 1000);
-        const days = Math.floor(totalSeconds / 86400);
-        const hours = Math.floor((totalSeconds % 86400) / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        countdownEl.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+          const totalSeconds = Math.floor(diff / 1000);
+          const days = Math.floor(totalSeconds / 86400);
+          const hours = Math.floor((totalSeconds % 86400) / 3600);
+          const minutes = Math.floor((totalSeconds % 3600) / 60);
+          const seconds = totalSeconds % 60;
+          countdownEl.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        };
 
-        if (unlockForm) unlockForm.style.display = "none";
-      };
-
-      updateCountdown();
-      setInterval(updateCountdown, 1000);
+        updateCountdown();
+        const timerId = setInterval(updateCountdown, 1000);
+      }
     }
   </script>
 {% endblock %}
